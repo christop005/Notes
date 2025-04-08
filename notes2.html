@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grid Notes</title>
+    <style>
+        :root {
+            --primary: #4285f4;
+            --primary-dark: #3367d6;
+            --danger: #ea4335;
+            --danger-dark: #d33426;
+            --background: #f8f9fa;
+            --card: #ffffff;
+            --text: #202124;
+            --text-light: #5f6368;
+            --border: #e0e0e0;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--background);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* [Previous CSS styles remain exactly the same...] */
+
+        /* Game Styles */
+        #game-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        
+        #game-canvas {
+            background: #111;
+            border: 2px solid #444;
+            margin-bottom: 20px;
+        }
+        
+        .game-header {
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .game-instructions {
+            margin-bottom: 20px;
+            text-align: center;
+            max-width: 500px;
+            line-height: 1.5;
+        }
+        
+        .game-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .game-btn {
+            padding: 10px 20px;
+            background: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        .game-btn:hover {
+            background: #3367d6;
+        }
+    </style>
+</head>
+<body>
+    <!-- [Previous HTML structure remains exactly the same...] -->
+
+    <!-- Game Container (hidden by default) -->
+    <div id="game-container">
+        <h2 class="game-header">Grid Notes Secret Game</h2>
+        <canvas id="game-canvas" width="600" height="400"></canvas>
+        <div class="game-instructions">
+            <p>Collect the blue squares while avoiding the red enemies!</p>
+            <p>Use WASD or Arrow Keys to move. Press ESC to exit the game.</p>
+            <p>Score: <span id="game-score">0</span></p>
+            <p>High Score: <span id="high-score">0</span></p>
+        </div>
+        <div class="game-controls">
+            <button class="game-btn" id="restart-game">Restart</button>
+            <button class="game-btn" id="exit-game">Exit Game</button>
+        </div>
+    </div>
+
+    <script>
+        // [Previous JavaScript code remains the same until the end...]
+
+        // ======================
+        // SECRET GAME FUNCTIONALITY
+        // ======================
+        
+        // Game variables
+        const gameContainer = document.getElementById('game-container');
+        const gameCanvas = document.getElementById('game-canvas');
+        const ctx = gameCanvas.getContext('2d');
+        const gameScoreEl = document.getElementById('game-score');
+        const highScoreEl = document.getElementById('high-score');
+        const restartBtn = document.getElementById('restart-game');
+        const exitBtn = document.getElementById('exit-game');
+        
+        let gameActive = false;
+        let score = 0;
+        let highScore = localStorage.getItem('gridNotesHighScore') || 0;
+        highScoreEl.textContent = highScore;
+        
+        // Player
+        const player = {
+            x: 300,
+            y: 200,
+            size: 20,
+            speed: 5,
+            color: '#4CAF50'
+        };
+        
+        // Collectibles
+        let collectibles = [];
+        
+        // Enemies
+        let enemies = [];
+        
+        // Keys pressed
+        const keys = {
+            ArrowUp: false,
+            ArrowDown: false,
+            ArrowLeft: false,
+            ArrowRight: false,
+            w: false,
+            a: false,
+            s: false,
+            d: false
+        };
+        
+        // Initialize game
+        function initGame() {
+            // Reset player position
+            player.x = 300;
+            player.y = 200;
+            
+            // Reset score
+            score = 0;
+            gameScoreEl.textContent = score;
+            
+            // Create initial collectibles
+            collectibles = [];
+            for (let i = 0; i < 5; i++) {
+                spawnCollectible();
+            }
+            
+            // Create initial enemies
+            enemies = [];
+            for (let i = 0; i < 3; i++) {
+                spawnEnemy();
+            }
+            
+            gameActive = true;
+            gameLoop();
+        }
+        
+        // Spawn a new collectible
+        function spawnCollectible() {
+            collectibles.push({
+                x: Math.random() * (gameCanvas.width - 20),
+                y: Math.random() * (gameCanvas.height - 20),
+                size: 15,
+                color: '#4285f4'
+            });
+        }
+        
+        // Spawn a new enemy
+        function spawnEnemy() {
+            // Spawn from edges
+            let x, y;
+            if (Math.random() < 0.5) {
+                x = Math.random() < 0.5 ? 0 : gameCanvas.width;
+                y = Math.random() * gameCanvas.height;
+            } else {
+                x = Math.random() * gameCanvas.width;
+                y = Math.random() < 0.5 ? 0 : gameCanvas.height;
+            }
+            
+            enemies.push({
+                x: x,
+                y: y,
+                size: 20,
+                speed: 1 + Math.random() * 2,
+                color: '#EA4335'
+            });
+        }
+        
+        // Main game loop
+        function gameLoop() {
+            if (!gameActive) return;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+            
+            // Update player position
+            if (keys.ArrowUp || keys.w) player.y -= player.speed;
+            if (keys.ArrowDown || keys.s) player.y += player.speed;
+            if (keys.ArrowLeft || keys.a) player.x -= player.speed;
+            if (keys.ArrowRight || keys.d) player.x += player.speed;
+            
+            // Boundary check
+            player.x = Math.max(0, Math.min(gameCanvas.width - player.size, player.x));
+            player.y = Math.max(0, Math.min(gameCanvas.height - player.size, player.y));
+            
+            // Draw player
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.size, player.size);
+            
+            // Draw collectibles
+            collectibles.forEach((collectible, index) => {
+                ctx.fillStyle = collectible.color;
+                ctx.fillRect(collectible.x, collectible.y, collectible.size, collectible.size);
+                
+                // Check collision
+                if (
+                    player.x < collectible.x + collectible.size &&
+                    player.x + player.size > collectible.x &&
+                    player.y < collectible.y + collectible.size &&
+                    player.y + player.size > collectible.y
+                ) {
+                    // Collect!
+                    collectibles.splice(index, 1);
+                    spawnCollectible();
+                    score++;
+                    gameScoreEl.textContent = score;
+                    
+                    // Spawn new enemy every 5 points
+                    if (score % 5 === 0) {
+                        spawnEnemy();
+                    }
+                }
+            });
+            
+            // Draw and move enemies
+            enemies.forEach((enemy, index) => {
+                // Move toward player
+                const dx = player.x - enemy.x;
+                const dy = player.y - enemy.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                enemy.x += (dx / distance) * enemy.speed;
+                enemy.y += (dy / distance) * enemy.speed;
+                
+                ctx.fillStyle = enemy.color;
+                ctx.fillRect(enemy.x, enemy.y, enemy.size, enemy.size);
+                
+                // Check collision with player
+                if (
+                    player.x < enemy.x + enemy.size &&
+                    player.x + player.size > enemy.x &&
+                    player.y < enemy.y + enemy.size &&
+                    player.y + player.size > enemy.y
+                ) {
+                    // Game over!
+                    gameOver();
+                }
+            });
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Game over
+        function gameOver() {
+            gameActive = false;
+            
+            // Update high score
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('gridNotesHighScore', highScore);
+                highScoreEl.textContent = highScore;
+            }
+            
+            // Show game over message
+            ctx.fillStyle = 'white';
+            ctx.font = '30px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('GAME OVER', gameCanvas.width / 2, gameCanvas.height / 2);
+            ctx.font = '20px Arial';
+            ctx.fillText(`Score: ${score}`, gameCanvas.width / 2, gameCanvas.height / 2 + 40);
+        }
+        
+        // Start game
+        function startGame() {
+            gameContainer.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            initGame();
+        }
+        
+        // Exit game
+        function exitGame() {
+            gameContainer.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            gameActive = false;
+        }
+        
+        // Event listeners for game
+        document.addEventListener('keydown', (e) => {
+            // Check for Ctrl+G to open game
+            if (e.ctrlKey && e.key.toLowerCase() === 'g') {
+                e.preventDefault();
+                startGame();
+            }
+            
+            // Game controls
+            if (gameContainer.style.display === 'flex') {
+                if (e.key in keys) {
+                    keys[e.key] = true;
+                    e.preventDefault();
+                }
+                
+                // Exit game with ESC
+                if (e.key === 'Escape') {
+                    exitGame();
+                }
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if (e.key in keys) {
+                keys[e.key] = false;
+            }
+        });
+        
+        restartBtn.addEventListener('click', initGame);
+        exitBtn.addEventListener('click', exitGame);
+    </script>
+</body>
+</html>
